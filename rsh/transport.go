@@ -24,6 +24,7 @@ func NewTCPServer(addr string) (Transport, error) {
 func NewTCPClient(addr string) (Transport, error) {
 	tcp := &tcpTransport{}
 	err := tcp.cConnect(addr)
+
 	if err != nil {
 		return nil, err
 	}

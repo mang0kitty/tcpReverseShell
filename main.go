@@ -10,6 +10,30 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+/**
+S: start listening
+S: wait for a client
+
+-- s.Listen()
+
+C: connect to the server
+C: send "hello" to the server
+
+-- c.Connect()
+-- c.Send("hello")
+
+S: receive "hello" from the client
+S: send "hello" back to the client
+
+-- d := s.Receive()
+-- s.Send(d)
+
+C: close
+S: close
+-- c.Close()
+-- s.Close()
+*/
+
 func startServer(c *cli.Context) error {
 	addr := c.String("addr")
 	fmt.Printf("Listening on %s\n", addr)
@@ -37,7 +61,19 @@ func startClient(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	posh := rsh.Powershell()
+	stdout, stderr, err := rsh.Execute("tasklist")
+	fmt.Println(stdout)
+	fmt.Println(stderr)
 
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// cmd := exec.Command("powershell.exe", "-NoExit", "-Command", "-")
+	// stdin, _ := cmd.StdinPipe()
+	// stdout, _ := cmd.StdoutPipe()
+	// cmd.Start()
 	defer tcp.Close()
 
 	err = tcp.Send([]byte("this is a test"))
