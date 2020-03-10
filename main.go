@@ -61,10 +61,8 @@ func startClient(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	posh := rsh.Powershell()
-	stdout, stderr, err := rsh.Execute("tasklist")
-	fmt.Println(stdout)
-	fmt.Println(stderr)
+	ps := rsh.Powershell()
+	err = ps.Execute("tasklist")
 
 	if err != nil {
 		log.Fatal(err)
