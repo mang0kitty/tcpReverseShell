@@ -2,10 +2,13 @@ package rsh
 
 import (
 	"bufio"
+	"io"
 	"net"
 )
 
 type Transport interface {
+	io.ReadWriter
+
 	Send(data []byte) error
 	Receive() ([]byte, error)
 	Close() error
@@ -80,4 +83,12 @@ func (t *tcpTransport) Send(message []byte) error {
 
 func (t *tcpTransport) Close() error {
 	return t.conn.Close()
+}
+
+func (t *tcpTransport) Read(p []byte) (int, error) {
+	return t.conn.Read(p)
+}
+
+func (t *tcpTransport) Write(p []byte) (int, error) {
+	return t.conn.Write(p)
 }

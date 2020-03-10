@@ -1,28 +1,26 @@
 package rsh
 
 import (
-	"bytes"
-	"fmt"
+	"io"
 	"os/exec"
-	"strings"
 )
 
-type PowerShell struct {
-	powerShell string
+type AppRunner struct {
+	Stdin io.Reader
+	Stdout io.Writer
 }
-func Powershell() *PowerShell {
-	ps, _ := exec.LookPath("powershell.exe")
-	return &PowerShell{
-		powerShell: ps,
+
+func (p *AppRunner) Execute(app string, args ...string) error {
+	ps, err := exec.LookPath(app)
+	if err != nil {
+		return err
 	}
-}
-func (p *PowerShell) Execute(args ...string) error {
-	cmd := run(exec.Command(p.powerShell, args...))
-	err :=cmd.Run()
 
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd := exec.Command(ps, args...)
 
-    return err
+	cmd.Stdin = p.Stdin
+	cmd.Stdout = p.Stdout
+	cmd.Stderr = p.Stdout
 
+	return cmd.Run()
 }

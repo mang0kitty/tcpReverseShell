@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
 
@@ -44,14 +45,13 @@ func startServer(c *cli.Context) error {
 
 	defer tcp.Close()
 
-	data, err := tcp.Receive()
-	if err != nil {
-		return err
-	}
+	// TODO: handle errors by shutting down the server + client
+	go func() {
+		io.Copy(tcp, os.Stdin)
+	}()
 
-	fmt.Println(string(data))
-
-	return tcp.Send(data)
+	_, err = io.Copy(os.Stdout, tcp)
+	return err
 }
 
 func startClient(c *cli.Context) error {
@@ -61,30 +61,19 @@ func startClient(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	ps := rsh.Powershell()
-	err = ps.Execute("tasklist")
+
+	defer tcp.Close()
+
+	ps := rsh.AppRunner{
+		Stdin:  tcp,
+		Stdout: tcp,
+	}
+
+	err = ps.Execute("powershell.exe", "-NoExit", "-Command", "Write-Host 'This is a sub-shell'")
 
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	// cmd := exec.Command("powershell.exe", "-NoExit", "-Command", "-")
-	// stdin, _ := cmd.StdinPipe()
-	// stdout, _ := cmd.StdoutPipe()
-	// cmd.Start()
-	defer tcp.Close()
-
-	err = tcp.Send([]byte("this is a test"))
-	if err != nil {
-		return err
-	}
-
-	response, err := tcp.Receive()
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf(string(response))
 
 	return nil
 }
